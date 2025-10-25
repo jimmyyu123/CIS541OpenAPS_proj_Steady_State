@@ -141,7 +141,7 @@ void TaskMQTT(void *pvParameters) {
     for (;;) {
         mqttClient.poll();
         if (millis() - last > 2000) { /*Serial.println("[TaskMQTT] polling");*/ last = millis(); }
-        vTaskDelay(pdMS_TO_TICKS(200));
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 

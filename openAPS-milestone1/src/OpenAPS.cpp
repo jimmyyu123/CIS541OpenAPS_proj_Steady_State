@@ -118,10 +118,9 @@ float OpenAPS::get_basal_rate(long t, float current_BG) {
     // else if (current_BG < threshold_BG) → decrease basal
     // add new treatment to list
     // ---- customize variables (SET BY US) ----
-    const float basal_default = 0.5f;   // U/hr
+    float basal_default = has_last_rate ? last_basal_rate : 0.0f;
     const float basal_min     = 0.0f;   // U/hr
     const float basal_max     = 2.0f;   // U/hr
-    const float kWindowMin    = 5.0f;   // control window（min）
 
     auto clampf = [](float v, float lo, float hi){
         return v < lo ? lo : (v > hi ? hi : v);
@@ -140,20 +139,20 @@ float OpenAPS::get_basal_rate(long t, float current_BG) {
 
     } else if (eventual_BG >= threshold_BG && eventual_BG < target_BG) {
         if (naive_eventual_BG < 40.0f) {
-            Serial.print("Case 2:");
+            Serial.print("Case 2-1:");
             basal_rate = 0.0f;
         } else {
-            Serial.print("Case 3:");
+            Serial.print("Case 2-2:");
             // multiplication by 2 to increase hypo safety (feel free to tune)
             float insulinReq = 2.0f * (eventual_BG - target_BG) / ISF;  // U 
-            basal_rate = basal_default + (insulinReq / DIA);             // U/hr
+            basal_rate = basal_default + (insulinReq / DIA);
             //set rate to (current basal + insulinReq / DIA) to deliver insulinReq less insulin over DIA mins
         }
 
     } else if (eventual_BG >= target_BG) {
-        Serial.print("Case 4:");
+        Serial.print("Case 3:");
         float insulinReq = (eventual_BG - target_BG) / ISF / 10.0f;      // U
-        basal_rate = basal_default + (insulinReq / DIA);                 // U/hr
+        basal_rate = basal_default + (insulinReq / DIA);
 
     } else {
         // maintain
@@ -165,8 +164,7 @@ float OpenAPS::get_basal_rate(long t, float current_BG) {
     basal_rate = clampf(basal_rate, basal_min, basal_max);
 
     // 3) record this treatment，calculate further IOB/Activity
-    float dose_this_window = basal_rate * (kWindowMin / 60.0f);
-    addInsulinTreatment(InsulinTreatment{ t, dose_this_window, static_cast<int>(kWindowMin) });
+    addInsulinTreatment(InsulinTreatment{ t, basal_rate, DIA});
 
     // debug print
     Serial.print("Time="); Serial.print(t);
@@ -174,6 +172,9 @@ float OpenAPS::get_basal_rate(long t, float current_BG) {
     Serial.print(" Naive BG="); Serial.print(naive_eventual_BG, 1);
     Serial.print(" Eventual BG="); Serial.print(eventual_BG, 1);
     Serial.print(" Basal Rate="); Serial.println(basal_rate, 3);
+
+    last_basal_rate = basal_rate;
+    has_last_rate   = true;
 
     return basal_rate;
 }
